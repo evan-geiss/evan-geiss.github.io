@@ -7,9 +7,52 @@
     <!-- Add your CSS and other head elements here -->
 </head>
 <body>
+    <script>
+        fetch('header.html')
+            .then(response => response.text())
+            .then(data => {
+                document.querySelector('body').insertAdjacentHTML('afterbegin', data);
+            });
+
+        fetch('footer.html')
+            .then(response => response.text())
+            .then(data => {
+                document.querySelector('body').insertAdjacentHTML('beforeend', data);
+            });
+    </script>
+
+
     <!-- Add your projects page content here -->
     <h1>Evan's Projects</h1>
     <p>This is the projects page content.</p>
-    <!-- Add your JavaScript and other scripts here if needed -->
+    <!-- Content goes here -->
+    <div class="container">
+            
+        <h2>GitHub Repositories</h2>
+        <div id="github-repositories"></div>
+        <!-- Add your project content here -->
+        <!-- Example:
+            <h1>Welcome to Evan's Projects</h1>
+            <p>Check out my awesome projects below:</p>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card">
+                        <img src="project1.jpg" class="card-img-top" alt="Project 1">
+                        <div class="card-body">
+                            <h5 class="card-title">Project 1</h5>
+                            <p class="card-text">Description of Project 1.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <!-- Add more project cards here -->
+                </div>
+            </div>
+            
+            
+        -->
+    </div>
+
+    <script src="script.js"></script>
 </body>
 </html>
