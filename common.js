@@ -8,6 +8,7 @@ function loadExternalScriptInBody(src) {
     var script = document.createElement('script');
     script.src = src;
     document.body.appendChild(script);
+    document.getElementsByClassName('container')[0].appendChild(script);
 }
 
 loadExternalScript('https://code.jquery.com/jquery-3.5.1.slim.min.js');
