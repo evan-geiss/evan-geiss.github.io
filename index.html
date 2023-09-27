@@ -23,6 +23,12 @@
                 document.querySelector('body').insertAdjacentHTML('afterbegin', data);
             });
 
+        fetct('../loadJS.html')
+            .then(response => response.text())
+            .then(data => {
+                document.querySelector('body').insertAdjacentHTML('afterbegin', data);
+            });
+
         fetch('../footer.html')
             .then(response => response.text())
             .then(data => {
