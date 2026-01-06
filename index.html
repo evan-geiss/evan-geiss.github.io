@@ -3,34 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evan's Projects</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <!-- Add your custom CSS here -->
-    <script src="common.js"></script>
+    <title>Guitar Routine - Practice</title>
+    <link rel="stylesheet" href="style.css">
 </head>
-<body>
-    <script>
-        fetch('../header.html')
-            .then(response => response.text())
-            .then(data => {
-                document.querySelector('body').insertAdjacentHTML('afterbegin', data);
-            });
+<body class="dark-mode">
+    <nav>
+        <a href="index.html" class="active">Practice</a>
+        <a href="history.html">Improvement Log</a>
+    </nav>
 
-        fetch('../footer.html')
-            .then(response => response.text())
-            .then(data => {
-                document.querySelector('body').insertAdjacentHTML('beforeend', data);
-            });
-    </script>
-    
-    <main>
+    <main id="app">
+        <header>
+            <h1>Module 1 Routine</h1>
+            <p id="date-display"></p>
+        </header>
+
+        <section id="routine-container">
+            </section>
+
+        <footer class="controls">
+            <button id="finish-btn" class="primary-btn">Finish Routine & Save Data</button>
+        </footer>
     </main>
 
     <script src="script.js"></script>
-    
-    <!-- Bootstrap JS and jQuery scripts (needed for responsive features) -->
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 </body>
 </html>

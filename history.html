@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Improvement Log</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-mode">
+    <nav>
+        <a href="index.html">Practice</a>
+        <a href="history.html" class="active">Improvement Log</a>
+    </nav>
+
+    <main>
+        <h1>Improvement Log</h1>
+        <button onclick="downloadCSV()" class="start-btn">Download CSV for Excel</button>
+        <table id="history-table" style="width: 100%; margin-top: 20px; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 2px solid var(--accent-color)">
+                    <th>Date</th>
+                    <th>Technique</th>
+                    <th>Count</th>
+                </tr>
+            </thead>
+            <tbody id="history-body"></tbody>
+        </table>
+    </main>
+
+    <script>
+        const log = JSON.parse(localStorage.getItem('guitarLog') || '[]');
+        const tbody = document.getElementById('history-body');
+
+        log.slice().reverse().forEach(entry => {
+            const row = tbody.insertRow();
+            row.innerHTML = `<td>${entry.date}</td><td>${entry.technique}</td><td>${entry.count}</td>`;
+        });
+
+        function downloadCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,Date,Technique,Count\n";
+            log.forEach(e => {
+                csvContent += `${e.date},"${e.technique}",${e.count}\n`;
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "guitar_practice_log.csv");
+            document.body.appendChild(link);
+            link.click();
+        }
+    </script>
+</body>
+</html>
