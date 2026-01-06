@@ -8,18 +8,25 @@ let metroIntervals = {};
 
 async function initializeApp() {
     try {
-        const rRes = await fetch('routines.json');
-        allRoutines = await rRes.json();
-        const sRes = await fetch(GOOGLE_SCRIPT_URL);
-        lastSessionData = await sRes.json();
+        // Fetch routines and last scores in parallel
+        const [rRes, sRes] = await Promise.all([
+            fetch('routines.json'),
+            fetch(GOOGLE_SCRIPT_URL)
+        ]);
         
-        // Populate dropdown from JSON keys
+        allRoutines = await rRes.json();
+        if (sRes.ok) lastSessionData = await sRes.json();
+        
+        // Setup dropdown
         const select = document.getElementById('routine-select');
         select.innerHTML = Object.keys(allRoutines).map(key => 
             `<option value="${key}">${allRoutines[key].title}</option>`).join('');
             
         loadRoutine(currentRoutineKey);
-    } catch (e) { console.error(e); loadRoutine('module-1'); }
+    } catch (e) { 
+        console.error("App Init Error:", e); 
+        if(Object.keys(allRoutines).length > 0) loadRoutine('module-1');
+    }
 }
 
 function loadRoutine(key) {
@@ -34,14 +41,17 @@ function loadRoutine(key) {
         const card = document.createElement('div');
         card.className = 'routine-card';
         card.id = `card-${item.id}`;
+        
         card.innerHTML = `
             <div class="card-header">
                 <h3>${item.name}</h3>
                 <span class="last-score">Last: <strong>${lastScore}</strong></span>
             </div>
+            ${item.description ? `<p class="tech-desc" style="font-size: 0.85rem; color: #aaa; font-style: italic; margin-bottom: 10px;">${item.description}</p>` : ''}
             <div class="timer-display" id="timer-${item.id}">${item.minutes}:00</div>
-            ${item.metronome ? `<div class="metronome-tool">
-                <input type="number" id="bpm-${item.id}" value="80"> <span>BPM</span>
+            ${item.metronome ? `
+            <div class="metronome-tool">
+                <input type="number" id="bpm-${item.id}" value="80" style="width: 50px;"> <span>BPM</span>
                 <button class="start-btn" onclick="toggleMetronome('${item.id}')" id="metro-btn-${item.id}">Start Click</button>
             </div>` : ''}
             <div class="input-group">
@@ -54,18 +64,22 @@ function loadRoutine(key) {
 
 function startTimer(id, mins) {
     let sec = mins * 60;
-    const btn = document.querySelector(`#card-${id} .start-btn:last-child`);
-    btn.disabled = true;
+    const display = document.getElementById(`timer-${id}`);
+    const card = document.getElementById(`card-${id}`);
+    
     const interval = setInterval(() => {
         sec--;
         let m = Math.floor(sec / 60), s = sec % 60;
-        document.getElementById(`timer-${id}`).innerText = `${m}:${s<10?'0':''}${s}`;
+        display.innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+        
         if (sec <= 0) {
             clearInterval(interval);
-            document.getElementById(`card-${id}`).classList.add('flash-active');
-            alert("Time up!");
-            document.getElementById(`card-${id}`).classList.remove('flash-active');
-            btn.disabled = false;
+            card.classList.add('flash-active');
+            // Play a small beep or alert
+            setTimeout(() => {
+                alert(`Time up for ${id}!`);
+                card.classList.remove('flash-active');
+            }, 100);
         }
     }, 1000);
 }
@@ -73,16 +87,21 @@ function startTimer(id, mins) {
 function toggleMetronome(id) {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const btn = document.getElementById(`metro-btn-${id}`);
+    const bpmInput = document.getElementById(`bpm-${id}`);
+
     if (metroIntervals[id]) {
-        clearInterval(metroIntervals[id]); delete metroIntervals[id];
+        clearInterval(metroIntervals[id]);
+        delete metroIntervals[id];
         btn.innerText = "Start Click";
     } else {
-        const ms = 60000 / document.getElementById(`bpm-${id}`).value;
+        const ms = 60000 / bpmInput.value;
         metroIntervals[id] = setInterval(() => {
             const osc = audioCtx.createOscillator(), env = audioCtx.createGain();
-            osc.frequency.value = 880; env.gain.value = 0.1;
+            osc.frequency.value = 880; 
+            env.gain.value = 0.1;
             osc.connect(env); env.connect(audioCtx.destination);
-            osc.start(); env.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            osc.start(); 
+            env.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
             osc.stop(audioCtx.currentTime + 0.1);
         }, ms);
         btn.innerText = "Stop Click";
@@ -91,19 +110,32 @@ function toggleMetronome(id) {
 
 document.getElementById('finish-btn').addEventListener('click', async () => {
     const today = new Date().toLocaleDateString();
+    const routineTitle = allRoutines[currentRoutineKey].title;
+    
     let payload = allRoutines[currentRoutineKey].exercises.map(item => ({
         date: today,
-        routine: allRoutines[currentRoutineKey].title,
+        routine: routineTitle,
         technique: item.id,
         count: document.getElementById(`input-${item.id}`).value || 0
     }));
 
+    // Save locally for history page
     let history = JSON.parse(localStorage.getItem('guitarLog') || '[]');
     localStorage.setItem('guitarLog', JSON.stringify(history.concat(payload)));
 
-    await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
-    alert('Practice Synced!');
-    window.location.href = 'history.html';
+    // Send to Google Sheets
+    try {
+        await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        alert('Practice Session Complete & Synced!');
+        window.location.href = 'history.html';
+    } catch (e) {
+        alert('Saved locally. Sync failed.');
+    }
 });
 
 initializeApp();
