@@ -2,24 +2,24 @@
     "module-1": {
         "title": "Module 1: Basics",
         "exercises": [
-            { "id": "d_chord", "name": "Chord Perfect Practice D Chord", "minutes": 3, "metronome": false },
-            { "id": "a_chord", "name": "Chord Perfect Practice A Chord", "minutes": 3, "metronome": false },
-            { "id": "anchor", "name": "Anchor Finger A & D Chords", "minutes": 2, "metronome": false },
-            { "id": "a_to_d", "name": "One Minute Changes A to D", "minutes": 1, "metronome": true },
-            { "id": "d_to_a", "name": "One Minute Changes D to A", "minutes": 1, "metronome": true }
+            { "id": "d_chord", "name": "Chord Perfect Practice D Chord", "minutes": 3, "metronome": false, "description": "Strum, pick strings individually, strum again. Adjust fingers if any string is muffled." },
+            { "id": "a_chord", "name": "Chord Perfect Practice A Chord", "minutes": 3, "metronome": false, "description": "Keep fingers bunched together. Ensure the high E string rings clearly." },
+            { "id": "anchor", "name": "Anchor Finger A & D Chords", "minutes": 2, "metronome": false, "description": "Keep the index finger (1st finger) on the 3rd string while switching between A and D." },
+            { "id": "a_to_d", "name": "One Minute Changes A to D", "minutes": 1, "metronome": true, "description": "Switch between A and D as many times as possible. Quality counts, but push for speed." },
+            { "id": "d_to_a", "name": "One Minute Changes D to A", "minutes": 1, "metronome": true, "description": "Switching back. Focus on the 'pivot' movement of the index finger." }
         ]
     },
     "module-2": {
         "title": "Module 2: The E Chord & Riffs",
         "exercises": [
-            { "id": "e_chord", "name": "Chord Perfect Practice E Chord", "minutes": 2, "metronome": false },
-            { "id": "d_chord_m2", "name": "Chord Perfect Practice D Chord", "minutes": 1, "metronome": false },
-            { "id": "a_chord_m2", "name": "Chord Perfect Practice A Chord", "minutes": 1, "metronome": false },
-            { "id": "anchor_ead", "name": "Anchor Finger E, A & D Chords", "minutes": 2, "metronome": false },
-            { "id": "a_to_d_m2", "name": "One Minute Changes A to D", "minutes": 1, "metronome": true },
-            { "id": "a_to_e", "name": "One Minute Changes A to E", "minutes": 1, "metronome": true },
-            { "id": "d_to_e", "name": "One Minute Changes D to E", "minutes": 1, "metronome": true },
-            { "id": "peter_gunn", "name": "Riff: Peter Gunn Theme", "minutes": 1, "metronome": true }
+            { "id": "e_chord", "name": "Chord Perfect Practice E Chord", "minutes": 2, "metronome": false, "description": "Same shape as Am but moved up one string. Ensure the 1st finger is pressing firmly." },
+            { "id": "d_chord_m2", "name": "Chord Perfect Practice D Chord", "minutes": 1, "metronome": false, "description": "Quick refresher. Keep that 'D' shape tight and clear." },
+            { "id": "a_chord_m2", "name": "Chord Perfect Practice A Chord", "minutes": 1, "metronome": false, "description": "Quick refresher. Try to get all three fingers to land at the same time." },
+            { "id": "anchor_ead", "name": "Anchor Finger E, A & D Chords", "minutes": 2, "metronome": false, "description": "Use the 1st finger as the anchor point for all three chords. Minimal movement is key." },
+            { "id": "a_to_d_m2", "name": "One Minute Changes A to D", "minutes": 1, "metronome": true, "description": "Pushing for a new high score today!" },
+            { "id": "a_to_e", "name": "One Minute Changes A to E", "minutes": 1, "metronome": true, "description": "Maintain the anchor finger. Don't let the 1st finger leave the 3rd string." },
+            { "id": "d_to_e", "name": "One Minute Changes D to E", "minutes": 1, "metronome": true, "description": "The most challenging switch so far. Keep the movements small." },
+            { "id": "peter_gunn", "name": "Riff: Peter Gunn Theme", "minutes": 1, "metronome": true, "description": "Low E string: 0-0-2-0-3-0-5-4. Use downpicks and stay on the beat." }
         ]
     }
 }
