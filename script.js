@@ -1,38 +1,54 @@
 // CONFIGURATION
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfMvCp66IFJyRvHolGVPllqS9JdjaZzdNJ-IgCAIgtTk40Wo4-2J-lRTDdRbYIWSz7EQ/exec';
+
 let allRoutines = {};
 let lastSessionData = {};
 let currentRoutineKey = 'module-1';
 let audioCtx = null;
 let metroIntervals = {};
+let completedExercises = new Set();
 
+/**
+ * INITIALIZATION
+ * Fetches data and sets up the app
+ */
 async function initializeApp() {
     try {
-        // Fetch routines and last scores in parallel
         const [rRes, sRes] = await Promise.all([
             fetch('routines.json'),
             fetch(GOOGLE_SCRIPT_URL)
         ]);
         
         allRoutines = await rRes.json();
-        if (sRes.ok) lastSessionData = await sRes.json();
+        if (sRes.ok) {
+            lastSessionData = await sRes.json();
+        }
         
-        // Setup dropdown
+        // Populate the Routine Selector Dropdown
         const select = document.getElementById('routine-select');
         select.innerHTML = Object.keys(allRoutines).map(key => 
             `<option value="${key}">${allRoutines[key].title}</option>`).join('');
             
         loadRoutine(currentRoutineKey);
     } catch (e) { 
-        console.error("App Init Error:", e); 
+        console.error("Initialization failed:", e); 
+        // Fallback to load UI even if Sheet fetch fails
         if(Object.keys(allRoutines).length > 0) loadRoutine('module-1');
     }
 }
 
+/**
+ * UI RENDERING
+ * Builds the exercise cards
+ */
 function loadRoutine(key) {
     currentRoutineKey = key;
+    completedExercises.clear();
+    updateProgressBar();
+
     const routine = allRoutines[key];
     document.getElementById('routine-title').innerText = routine.title;
+    
     const container = document.getElementById('routine-container');
     container.innerHTML = '';
 
@@ -47,13 +63,15 @@ function loadRoutine(key) {
                 <h3>${item.name}</h3>
                 <span class="last-score">Last: <strong>${lastScore}</strong></span>
             </div>
-            ${item.description ? `<p class="tech-desc" style="font-size: 0.85rem; color: #aaa; font-style: italic; margin-bottom: 10px;">${item.description}</p>` : ''}
+            ${item.description ? `<p class="tech-desc">${item.description}</p>` : ''}
             <div class="timer-display" id="timer-${item.id}">${item.minutes}:00</div>
+            
             ${item.metronome ? `
             <div class="metronome-tool">
-                <input type="number" id="bpm-${item.id}" value="80" style="width: 50px;"> <span>BPM</span>
+                <input type="number" id="bpm-${item.id}" value="80"> <span>BPM</span>
                 <button class="start-btn" onclick="toggleMetronome('${item.id}')" id="metro-btn-${item.id}">Start Click</button>
             </div>` : ''}
+            
             <div class="input-group">
                 <input type="number" id="input-${item.id}" placeholder="Reps">
                 <button class="start-btn" onclick="startTimer('${item.id}', ${item.minutes})">Start Timer</button>
@@ -62,11 +80,17 @@ function loadRoutine(key) {
     });
 }
 
+/**
+ * TIMER & PROGRESS LOGIC
+ */
 function startTimer(id, mins) {
     let sec = mins * 60;
     const display = document.getElementById(`timer-${id}`);
     const card = document.getElementById(`card-${id}`);
+    const startBtn = card.querySelector('.input-group .start-btn');
     
+    startBtn.disabled = true; // Prevent double-clicking
+
     const interval = setInterval(() => {
         sec--;
         let m = Math.floor(sec / 60), s = sec % 60;
@@ -74,16 +98,32 @@ function startTimer(id, mins) {
         
         if (sec <= 0) {
             clearInterval(interval);
+            startBtn.disabled = false;
             card.classList.add('flash-active');
-            // Play a small beep or alert
+            
+            // Mark as completed and update the bar
+            completedExercises.add(id);
+            updateProgressBar();
+
             setTimeout(() => {
-                alert(`Time up for ${id}!`);
+                alert(`Time up for: ${id}`);
                 card.classList.remove('flash-active');
             }, 100);
         }
     }, 1000);
 }
 
+function updateProgressBar() {
+    const total = allRoutines[currentRoutineKey].exercises.length;
+    const completed = completedExercises.size;
+    const percentage = (completed / total) * 100;
+    const bar = document.getElementById('progress-bar');
+    if (bar) bar.style.width = percentage + "%";
+}
+
+/**
+ * METRONOME LOGIC
+ */
 function toggleMetronome(id) {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const btn = document.getElementById(`metro-btn-${id}`);
@@ -97,7 +137,7 @@ function toggleMetronome(id) {
         const ms = 60000 / bpmInput.value;
         metroIntervals[id] = setInterval(() => {
             const osc = audioCtx.createOscillator(), env = audioCtx.createGain();
-            osc.frequency.value = 880; 
+            osc.frequency.value = 880; // High Click
             env.gain.value = 0.1;
             osc.connect(env); env.connect(audioCtx.destination);
             osc.start(); 
@@ -108,10 +148,15 @@ function toggleMetronome(id) {
     }
 }
 
+/**
+ * DATA SUBMISSION
+ * Saves to LocalStorage and Google Sheets
+ */
 document.getElementById('finish-btn').addEventListener('click', async () => {
     const today = new Date().toLocaleDateString();
     const routineTitle = allRoutines[currentRoutineKey].title;
     
+    // Build the payload (Long Format)
     let payload = allRoutines[currentRoutineKey].exercises.map(item => ({
         date: today,
         routine: routineTitle,
@@ -119,7 +164,7 @@ document.getElementById('finish-btn').addEventListener('click', async () => {
         count: document.getElementById(`input-${item.id}`).value || 0
     }));
 
-    // Save locally for history page
+    // Save locally
     let history = JSON.parse(localStorage.getItem('guitarLog') || '[]');
     localStorage.setItem('guitarLog', JSON.stringify(history.concat(payload)));
 
@@ -134,8 +179,10 @@ document.getElementById('finish-btn').addEventListener('click', async () => {
         alert('Practice Session Complete & Synced!');
         window.location.href = 'history.html';
     } catch (e) {
-        alert('Saved locally. Sync failed.');
+        console.error("Sync Error:", e);
+        alert('Saved locally. Could not sync to cloud.');
     }
 });
 
+// Run app
 initializeApp();
