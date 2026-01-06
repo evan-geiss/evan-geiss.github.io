@@ -102,3 +102,43 @@ button {
     from { background-color: var(--card-bg); }
     to { background-color: #443300; }
 }
+
+.history-container {
+    width: 95%;
+    max-width: 1000px;
+    margin-top: 20px;
+}
+
+.table-wrapper {
+    overflow-x: auto; /* Good for small screens/mobile */
+    background: var(--card-bg);
+    border-radius: 8px;
+    padding: 10px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+th {
+    border-bottom: 2px solid var(--accent-color);
+    padding: 12px;
+    color: var(--accent-color);
+}
+
+td {
+    padding: 12px;
+    border-bottom: 1px solid #333;
+}
+
+tr:hover {
+    background-color: #252525;
+}
+
+.note {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 10px;
+}
