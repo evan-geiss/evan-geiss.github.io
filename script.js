@@ -1,30 +1,53 @@
-const routineData = [
-    { id: 'd_chord', name: 'Chord Perfect Practice D Chord', minutes: 3 },
-    { id: 'a_chord', name: 'Chord Perfect Practice A Chord', minutes: 3 },
-    { id: 'anchor', name: 'Anchor Finger A & D Chords', minutes: 2 },
-    { id: 'a_to_d', name: 'One Minute Changes A to D', minutes: 1 },
-    { id: 'd_to_a', name: 'One Minute Changes D to A', minutes: 1 }
-];
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxdLjZEq5rANcbQQLzc-1c9IjqQR2OM6QwqbuxJGC0DrjMcTHcS1YIJyaccU_eBZU6ZvQ/exec';
+let allRoutines = {};
+let audioCtx = null;
 
-const container = document.getElementById('routine-container');
+// Initialize Audio Context for Metronome on first click (Browser security)
+function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
 
-// Build the UI
-routineData.forEach(item => {
-    const card = document.createElement('div');
-    card.className = 'routine-card';
-    card.id = `card-${item.id}`;
-    card.innerHTML = `
-        <h3>${item.name}</h3>
-        <div class="timer-display" id="timer-${item.id}">${item.minutes}:00</div>
-        <div class="input-group">
-            <label>Reps:</label>
-            <input type="number" id="input-${item.id}" placeholder="0">
-            <button class="start-btn" onclick="startTimer('${item.id}', ${item.minutes})">Start</button>
-        </div>
-    `;
-    container.appendChild(card);
-});
+// 1. Fetch the JSON data
+fetch('routines.json')
+    .then(response => response.json())
+    .then(data => {
+        allRoutines = data;
+        loadRoutine('module-1'); // Default load
+    });
 
+function loadRoutine(routineKey) {
+    const routine = allRoutines[routineKey];
+    const container = document.getElementById('routine-container');
+    document.querySelector('h1').innerText = routine.title;
+    container.innerHTML = ''; 
+
+    routine.exercises.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'routine-card';
+        card.id = `card-${item.id}`;
+        
+        // Add metronome UI if enabled in JSON
+        const metronomeHTML = item.metronome ? `
+            <div class="metronome-tool">
+                <input type="number" id="bpm-${item.id}" value="80" min="40" max="240"> BPM
+                <button onclick="toggleMetronome('${item.id}')" id="metro-btn-${item.id}">Start Click</button>
+            </div>
+        ` : '';
+
+        card.innerHTML = `
+            <h3>${item.name}</h3>
+            <div class="timer-display" id="timer-${item.id}">${item.minutes}:00</div>
+            ${metronomeHTML}
+            <div class="input-group">
+                <input type="number" id="input-${item.id}" placeholder="Reps">
+                <button class="start-btn" onclick="startTimer('${item.id}', ${item.minutes})">Start Timer</button>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+// 2. Timer Logic
 function startTimer(id, mins) {
     let seconds = mins * 60;
     const display = document.getElementById(`timer-${id}`);
@@ -39,45 +62,63 @@ function startTimer(id, mins) {
         if (seconds <= 0) {
             clearInterval(interval);
             card.classList.add('flash-active');
+            setTimeout(() => card.classList.remove('flash-active'), 3000);
             alert(`Time up for ${id}!`);
-            card.classList.remove('flash-active');
         }
     }, 1000);
 }
 
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxdLjZEq5rANcbQQLzc-1c9IjqQR2OM6QwqbuxJGC0DrjMcTHcS1YIJyaccU_eBZU6ZvQ/exec';
+// 3. Metronome Logic (Web Audio API)
+let metroIntervals = {};
+function toggleMetronome(id) {
+    initAudio();
+    const btn = document.getElementById(`metro-btn-${id}`);
+    const bpm = document.getElementById(`bpm-${id}`).value;
 
+    if (metroIntervals[id]) {
+        clearInterval(metroIntervals[id]);
+        delete metroIntervals[id];
+        btn.innerText = "Start Click";
+    } else {
+        const ms = 60000 / bpm;
+        metroIntervals[id] = setInterval(() => {
+            const osc = audioCtx.createOscillator();
+            const envelope = audioCtx.createGain();
+            osc.frequency.value = 880; // High A
+            envelope.gain.value = 0.1;
+            osc.connect(envelope);
+            envelope.connect(audioCtx.destination);
+            osc.start();
+            envelope.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            osc.stop(audioCtx.currentTime + 0.1);
+        }, ms);
+        btn.innerText = "Stop Click";
+    }
+}
+
+// 4. Save to Sheets (Option B)
 document.getElementById('finish-btn').addEventListener('click', async () => {
-    const today = new Date().toLocaleDateString();
+    const today = new Date().toISOString().split('T')[0];
     let currentSession = [];
+    const currentRoutineKey = 'module-1'; // Logic could be updated to track active routine
 
-    // Collect data from inputs
-    routineData.forEach(item => {
+    allRoutines[currentRoutineKey].exercises.forEach(item => {
         const count = document.getElementById(`input-${item.id}`).value || 0;
-        currentSession.push({
-            date: today,
-            technique: item.name,
-            count: count
-        });
+        currentSession.push({ date: today, technique: item.name, count: count });
     });
 
-    // 1. Save to LocalStorage (for the History page table)
     let history = JSON.parse(localStorage.getItem('guitarLog') || '[]');
     localStorage.setItem('guitarLog', JSON.stringify(history.concat(currentSession)));
 
-    // 2. Send to Google Sheets
     try {
-        const response = await fetch(GOOGLE_SCRIPT_URL, {
+        await fetch(GOOGLE_SCRIPT_URL, {
             method: 'POST',
-            mode: 'no-cors', // Needed for Google Apps Script cross-domain
-            cache: 'no-cache',
-            headers: { 'Content-Type': 'application/json' },
+            mode: 'no-cors',
             body: JSON.stringify(currentSession)
         });
-        alert('Session saved to Sheets & Local Storage!');
+        alert('Routine Complete! Data synced.');
         window.location.href = 'history.html';
-    } catch (error) {
-        console.error('Error!', error);
-        alert('Saved locally, but failed to sync with Google Sheets.');
+    } catch (e) {
+        alert('Saved locally. Network error for Sheets.');
     }
 });
