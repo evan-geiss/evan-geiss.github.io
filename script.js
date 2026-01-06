@@ -2,167 +2,108 @@
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfMvCp66IFJyRvHolGVPllqS9JdjaZzdNJ-IgCAIgtTk40Wo4-2J-lRTDdRbYIWSz7EQ/exec';
 let allRoutines = {};
 let lastSessionData = {};
+let currentRoutineKey = 'module-1';
 let audioCtx = null;
 let metroIntervals = {};
 
-/**
- * INITIALIZATION: Runs when the page loads
- */
 async function initializeApp() {
     try {
-        // 1. Fetch the routine structure from your JSON file
-        const routineResponse = await fetch('routines.json');
-        allRoutines = await routineResponse.json();
-
-        // 2. Fetch the last session data from Google Sheets (via the doGet function)
-        const sheetResponse = await fetch(GOOGLE_SCRIPT_URL);
-        if (sheetResponse.ok) {
-            lastSessionData = await sheetResponse.json();
-        }
-
-        // 3. Build the UI (defaulting to Module 1)
-        loadRoutine('module-1');
-    } catch (error) {
-        console.error("Initialization failed:", error);
-        // Fallback: If Google Sheets fails, still try to load the routine UI
-        if (Object.keys(allRoutines).length > 0) loadRoutine('module-1');
-    }
+        const rRes = await fetch('routines.json');
+        allRoutines = await rRes.json();
+        const sRes = await fetch(GOOGLE_SCRIPT_URL);
+        lastSessionData = await sRes.json();
+        
+        // Populate dropdown from JSON keys
+        const select = document.getElementById('routine-select');
+        select.innerHTML = Object.keys(allRoutines).map(key => 
+            `<option value="${key}">${allRoutines[key].title}</option>`).join('');
+            
+        loadRoutine(currentRoutineKey);
+    } catch (e) { console.error(e); loadRoutine('module-1'); }
 }
 
-/**
- * UI RENDERING: Builds the practice cards
- */
-function loadRoutine(routineKey) {
-    const routine = allRoutines[routineKey];
+function loadRoutine(key) {
+    currentRoutineKey = key;
+    const routine = allRoutines[key];
+    document.getElementById('routine-title').innerText = routine.title;
     const container = document.getElementById('routine-container');
-    const title = document.getElementById('routine-title');
-    
-    if (title) title.innerText = routine.title;
-    container.innerHTML = ''; 
+    container.innerHTML = '';
 
     routine.exercises.forEach(item => {
+        const lastScore = lastSessionData[item.id] !== undefined ? lastSessionData[item.id] : "-";
         const card = document.createElement('div');
         card.className = 'routine-card';
         card.id = `card-${item.id}`;
-        
-        // Find the previous score using the ID from the sheet headers
-        const lastScore = lastSessionData[item.id] !== undefined ? lastSessionData[item.id] : "-";
-
-        const metronomeHTML = item.metronome ? `
-            <div class="metronome-tool">
-                <input type="number" id="bpm-${item.id}" value="80" min="40" max="240"> <span>BPM</span>
-                <button class="start-btn" onclick="toggleMetronome('${item.id}')" id="metro-btn-${item.id}">Start Click</button>
-            </div>
-        ` : '';
-
         card.innerHTML = `
             <div class="card-header">
                 <h3>${item.name}</h3>
                 <span class="last-score">Last: <strong>${lastScore}</strong></span>
             </div>
             <div class="timer-display" id="timer-${item.id}">${item.minutes}:00</div>
-            ${metronomeHTML}
+            ${item.metronome ? `<div class="metronome-tool">
+                <input type="number" id="bpm-${item.id}" value="80"> <span>BPM</span>
+                <button class="start-btn" onclick="toggleMetronome('${item.id}')" id="metro-btn-${item.id}">Start Click</button>
+            </div>` : ''}
             <div class="input-group">
                 <input type="number" id="input-${item.id}" placeholder="Reps">
                 <button class="start-btn" onclick="startTimer('${item.id}', ${item.minutes})">Start Timer</button>
-            </div>
-        `;
+            </div>`;
         container.appendChild(card);
     });
 }
 
-/**
- * TIMER LOGIC
- */
 function startTimer(id, mins) {
-    let seconds = mins * 60;
-    const display = document.getElementById(`timer-${id}`);
-    const card = document.getElementById(`card-${id}`);
-    
+    let sec = mins * 60;
+    const btn = document.querySelector(`#card-${id} .start-btn:last-child`);
+    btn.disabled = true;
     const interval = setInterval(() => {
-        seconds--;
-        let m = Math.floor(seconds / 60);
-        let s = seconds % 60;
-        display.innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
-
-        if (seconds <= 0) {
+        sec--;
+        let m = Math.floor(sec / 60), s = sec % 60;
+        document.getElementById(`timer-${id}`).innerText = `${m}:${s<10?'0':''}${s}`;
+        if (sec <= 0) {
             clearInterval(interval);
-            card.classList.add('flash-active');
-            alert(`Time up for: ${id}`);
-            card.classList.remove('flash-active');
+            document.getElementById(`card-${id}`).classList.add('flash-active');
+            alert("Time up!");
+            document.getElementById(`card-${id}`).classList.remove('flash-active');
+            btn.disabled = false;
         }
     }, 1000);
 }
 
-/**
- * METRONOME LOGIC
- */
-function initAudio() {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-}
-
 function toggleMetronome(id) {
-    initAudio();
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const btn = document.getElementById(`metro-btn-${id}`);
-    const bpm = document.getElementById(`bpm-${id}`).value;
-
     if (metroIntervals[id]) {
-        clearInterval(metroIntervals[id]);
-        delete metroIntervals[id];
+        clearInterval(metroIntervals[id]); delete metroIntervals[id];
         btn.innerText = "Start Click";
     } else {
-        const ms = 60000 / bpm;
+        const ms = 60000 / document.getElementById(`bpm-${id}`).value;
         metroIntervals[id] = setInterval(() => {
-            const osc = audioCtx.createOscillator();
-            const envelope = audioCtx.createGain();
-            osc.frequency.value = 880; 
-            envelope.gain.value = 0.1;
-            osc.connect(envelope);
-            envelope.connect(audioCtx.destination);
-            osc.start();
-            envelope.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            const osc = audioCtx.createOscillator(), env = audioCtx.createGain();
+            osc.frequency.value = 880; env.gain.value = 0.1;
+            osc.connect(env); env.connect(audioCtx.destination);
+            osc.start(); env.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
             osc.stop(audioCtx.currentTime + 0.1);
         }, ms);
         btn.innerText = "Stop Click";
     }
 }
 
-/**
- * DATA SUBMISSION: Saves to Google Sheets (Wide Format)
- */
 document.getElementById('finish-btn').addEventListener('click', async () => {
     const today = new Date().toLocaleDateString();
-    
-    // Create one object where keys match your Google Sheet headers
-    let rowData = { date: today };
+    let payload = allRoutines[currentRoutineKey].exercises.map(item => ({
+        date: today,
+        routine: allRoutines[currentRoutineKey].title,
+        technique: item.id,
+        count: document.getElementById(`input-${item.id}`).value || 0
+    }));
 
-    // We use the first routine key for this example; 
-    // in a more advanced version, you'd track which routine is active.
-    allRoutines['module-1'].exercises.forEach(item => {
-        const val = document.getElementById(`input-${item.id}`).value || 0;
-        rowData[item.id] = val;
-    });
-
-    // Save to LocalStorage for immediate history viewing
     let history = JSON.parse(localStorage.getItem('guitarLog') || '[]');
-    history.push(rowData);
-    localStorage.setItem('guitarLog', JSON.stringify(history));
+    localStorage.setItem('guitarLog', JSON.stringify(history.concat(payload)));
 
-    try {
-        // Send to Google Sheets (doPost)
-        await fetch(GOOGLE_SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(rowData)
-        });
-        alert('Practice Session Synced to Google Sheets!');
-        window.location.href = 'history.html';
-    } catch (error) {
-        console.error('Submission error:', error);
-        alert('Saved locally, but could not reach Google Sheets.');
-    }
+    await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
+    alert('Practice Synced!');
+    window.location.href = 'history.html';
 });
 
-// Start the app
 initializeApp();
