@@ -45,21 +45,39 @@ function startTimer(id, mins) {
     }, 1000);
 }
 
-// Save Data Logic (Option B)
-document.getElementById('finish-btn').addEventListener('click', () => {
-    const today = new Date().toISOString().split('T')[0];
-    let sessionData = JSON.parse(localStorage.getItem('guitarLog') || '[]');
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxdLjZEq5rANcbQQLzc-1c9IjqQR2OM6QwqbuxJGC0DrjMcTHcS1YIJyaccU_eBZU6ZvQ/exec';
 
+document.getElementById('finish-btn').addEventListener('click', async () => {
+    const today = new Date().toLocaleDateString();
+    let currentSession = [];
+
+    // Collect data from inputs
     routineData.forEach(item => {
         const count = document.getElementById(`input-${item.id}`).value || 0;
-        sessionData.push({
+        currentSession.push({
             date: today,
             technique: item.name,
             count: count
         });
     });
 
-    localStorage.setItem('guitarLog', JSON.stringify(sessionData));
-    alert('Session Saved to Local Storage!');
-    window.location.href = 'history.html';
+    // 1. Save to LocalStorage (for the History page table)
+    let history = JSON.parse(localStorage.getItem('guitarLog') || '[]');
+    localStorage.setItem('guitarLog', JSON.stringify(history.concat(currentSession)));
+
+    // 2. Send to Google Sheets
+    try {
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors', // Needed for Google Apps Script cross-domain
+            cache: 'no-cache',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(currentSession)
+        });
+        alert('Session saved to Sheets & Local Storage!');
+        window.location.href = 'history.html';
+    } catch (error) {
+        console.error('Error!', error);
+        alert('Saved locally, but failed to sync with Google Sheets.');
+    }
 });
