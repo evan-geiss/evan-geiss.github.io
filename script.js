@@ -1,24 +1,43 @@
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxdLjZEq5rANcbQQLzc-1c9IjqQR2OM6QwqbuxJGC0DrjMcTHcS1YIJyaccU_eBZU6ZvQ/exec';
+// CONFIGURATION
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfMvCp66IFJyRvHolGVPllqS9JdjaZzdNJ-IgCAIgtTk40Wo4-2J-lRTDdRbYIWSz7EQ/exec';
 let allRoutines = {};
+let lastSessionData = {};
 let audioCtx = null;
+let metroIntervals = {};
 
-// Initialize Audio Context for Metronome on first click (Browser security)
-function initAudio() {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+/**
+ * INITIALIZATION: Runs when the page loads
+ */
+async function initializeApp() {
+    try {
+        // 1. Fetch the routine structure from your JSON file
+        const routineResponse = await fetch('routines.json');
+        allRoutines = await routineResponse.json();
+
+        // 2. Fetch the last session data from Google Sheets (via the doGet function)
+        const sheetResponse = await fetch(GOOGLE_SCRIPT_URL);
+        if (sheetResponse.ok) {
+            lastSessionData = await sheetResponse.json();
+        }
+
+        // 3. Build the UI (defaulting to Module 1)
+        loadRoutine('module-1');
+    } catch (error) {
+        console.error("Initialization failed:", error);
+        // Fallback: If Google Sheets fails, still try to load the routine UI
+        if (Object.keys(allRoutines).length > 0) loadRoutine('module-1');
+    }
 }
 
-// 1. Fetch the JSON data
-fetch('routines.json')
-    .then(response => response.json())
-    .then(data => {
-        allRoutines = data;
-        loadRoutine('module-1'); // Default load
-    });
-
+/**
+ * UI RENDERING: Builds the practice cards
+ */
 function loadRoutine(routineKey) {
     const routine = allRoutines[routineKey];
     const container = document.getElementById('routine-container');
-    document.querySelector('h1').innerText = routine.title;
+    const title = document.getElementById('routine-title');
+    
+    if (title) title.innerText = routine.title;
     container.innerHTML = ''; 
 
     routine.exercises.forEach(item => {
@@ -26,16 +45,21 @@ function loadRoutine(routineKey) {
         card.className = 'routine-card';
         card.id = `card-${item.id}`;
         
-        // Add metronome UI if enabled in JSON
+        // Find the previous score using the ID from the sheet headers
+        const lastScore = lastSessionData[item.id] !== undefined ? lastSessionData[item.id] : "-";
+
         const metronomeHTML = item.metronome ? `
             <div class="metronome-tool">
-                <input type="number" id="bpm-${item.id}" value="80" min="40" max="240"> BPM
-                <button onclick="toggleMetronome('${item.id}')" id="metro-btn-${item.id}">Start Click</button>
+                <input type="number" id="bpm-${item.id}" value="80" min="40" max="240"> <span>BPM</span>
+                <button class="start-btn" onclick="toggleMetronome('${item.id}')" id="metro-btn-${item.id}">Start Click</button>
             </div>
         ` : '';
 
         card.innerHTML = `
-            <h3>${item.name}</h3>
+            <div class="card-header">
+                <h3>${item.name}</h3>
+                <span class="last-score">Last: <strong>${lastScore}</strong></span>
+            </div>
             <div class="timer-display" id="timer-${item.id}">${item.minutes}:00</div>
             ${metronomeHTML}
             <div class="input-group">
@@ -47,7 +71,9 @@ function loadRoutine(routineKey) {
     });
 }
 
-// 2. Timer Logic
+/**
+ * TIMER LOGIC
+ */
 function startTimer(id, mins) {
     let seconds = mins * 60;
     const display = document.getElementById(`timer-${id}`);
@@ -62,14 +88,19 @@ function startTimer(id, mins) {
         if (seconds <= 0) {
             clearInterval(interval);
             card.classList.add('flash-active');
-            setTimeout(() => card.classList.remove('flash-active'), 3000);
-            alert(`Time up for ${id}!`);
+            alert(`Time up for: ${id}`);
+            card.classList.remove('flash-active');
         }
     }, 1000);
 }
 
-// 3. Metronome Logic (Web Audio API)
-let metroIntervals = {};
+/**
+ * METRONOME LOGIC
+ */
+function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
 function toggleMetronome(id) {
     initAudio();
     const btn = document.getElementById(`metro-btn-${id}`);
@@ -84,7 +115,7 @@ function toggleMetronome(id) {
         metroIntervals[id] = setInterval(() => {
             const osc = audioCtx.createOscillator();
             const envelope = audioCtx.createGain();
-            osc.frequency.value = 880; // High A
+            osc.frequency.value = 880; 
             envelope.gain.value = 0.1;
             osc.connect(envelope);
             envelope.connect(audioCtx.destination);
@@ -96,38 +127,42 @@ function toggleMetronome(id) {
     }
 }
 
-// 4. Save to Sheets (Option B)
+/**
+ * DATA SUBMISSION: Saves to Google Sheets (Wide Format)
+ */
 document.getElementById('finish-btn').addEventListener('click', async () => {
     const today = new Date().toLocaleDateString();
     
-    // Create a single object for the whole row
-    let rowData = {
-        date: today
-    };
+    // Create one object where keys match your Google Sheet headers
+    let rowData = { date: today };
 
-    // Loop through the routine to grab values using the IDs from your JSON
+    // We use the first routine key for this example; 
+    // in a more advanced version, you'd track which routine is active.
     allRoutines['module-1'].exercises.forEach(item => {
         const val = document.getElementById(`input-${item.id}`).value || 0;
-        rowData[item.id] = val; // This creates keys like d_chord: 50
+        rowData[item.id] = val;
     });
 
-    // 1. Save to LocalStorage
+    // Save to LocalStorage for immediate history viewing
     let history = JSON.parse(localStorage.getItem('guitarLog') || '[]');
     history.push(rowData);
     localStorage.setItem('guitarLog', JSON.stringify(history));
 
-    // 2. Send to Google Sheets
     try {
+        // Send to Google Sheets (doPost)
         await fetch(GOOGLE_SCRIPT_URL, {
             method: 'POST',
-            mode: 'no-cors',
+            mode: 'no-cors', 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(rowData)
         });
-        alert('Practice session recorded!');
+        alert('Practice Session Synced to Google Sheets!');
         window.location.href = 'history.html';
     } catch (error) {
-        console.error('Error!', error);
-        alert('Saved locally, but sync failed.');
+        console.error('Submission error:', error);
+        alert('Saved locally, but could not reach Google Sheets.');
     }
 });
+
+// Start the app
+initializeApp();
