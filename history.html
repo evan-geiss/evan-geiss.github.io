@@ -2,37 +2,45 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Improvement Log</title>
+    <title>Practice History</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="dark-mode">
     <nav>
-        <a href="index.html">Practice</a>
-        <a href="history.html" class="active">Improvement Log</a>
+        <div class="nav-container">
+            <a href="index.html">Practice</a>
+            <a href="history.html" class="active">History & Improvement</a>
+        </div>
     </nav>
 
-    <main>
+    <main class="history-container">
         <h1>Improvement Log</h1>
-        <button onclick="downloadCSV()" class="start-btn">Download CSV for Excel</button>
-        <table id="history-table" style="width: 100%; margin-top: 20px; border-collapse: collapse;">
-            <thead>
-                <tr style="border-bottom: 2px solid var(--accent-color)">
-                    <th>Date</th>
-                    <th>Technique</th>
-                    <th>Count</th>
-                </tr>
-            </thead>
-            <tbody id="history-body"></tbody>
-        </table>
+        <div class="table-wrapper">
+            <table id="history-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>D Chord</th>
+                        <th>A Chord</th>
+                        <th>Anchor</th>
+                        <th>A to D</th>
+                        <th>D to A</th>
+                    </tr>
+                </thead>
+                <tbody id="history-body">
+                    </tbody>
+            </table>
+        </div>
+        <button onclick="downloadCSV()" class="start-btn" style="margin-top: 20px;">Download CSV</button>
     </main>
 
     <script>
         const log = JSON.parse(localStorage.getItem('guitarLog') || '[]');
         const tbody = document.getElementById('history-body');
 
+        // Render table rows (most recent first)
         log.slice().reverse().forEach(entry => {
             const row = tbody.insertRow();
-            // Adjust these keys to match the IDs in your routines.json
             row.innerHTML = `
                 <td>${entry.date}</td>
                 <td>${entry.d_chord || 0}</td>
@@ -42,6 +50,20 @@
                 <td>${entry.d_to_a || 0}</td>
             `;
         });
+
+        function downloadCSV() {
+            if(log.length === 0) return alert("No data to download");
+            let csvContent = "data:text/csv;charset=utf-8,Date,D_Chord,A_Chord,Anchor,A_to_D,D_to_A\n";
+            log.forEach(e => {
+                csvContent += `${e.date},${e.d_chord},${e.a_chord},${e.anchor},${e.a_to_d},${e.d_to_a}\n`;
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "guitar_progress.csv");
+            document.body.appendChild(link);
+            link.click();
+        }
     </script>
 </body>
 </html>
