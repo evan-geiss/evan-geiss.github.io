@@ -98,27 +98,36 @@ function toggleMetronome(id) {
 
 // 4. Save to Sheets (Option B)
 document.getElementById('finish-btn').addEventListener('click', async () => {
-    const today = new Date().toISOString().split('T')[0];
-    let currentSession = [];
-    const currentRoutineKey = 'module-1'; // Logic could be updated to track active routine
+    const today = new Date().toLocaleDateString();
+    
+    // Create a single object for the whole row
+    let rowData = {
+        date: today
+    };
 
-    allRoutines[currentRoutineKey].exercises.forEach(item => {
-        const count = document.getElementById(`input-${item.id}`).value || 0;
-        currentSession.push({ date: today, technique: item.name, count: count });
+    // Loop through the routine to grab values using the IDs from your JSON
+    allRoutines['module-1'].exercises.forEach(item => {
+        const val = document.getElementById(`input-${item.id}`).value || 0;
+        rowData[item.id] = val; // This creates keys like d_chord: 50
     });
 
+    // 1. Save to LocalStorage
     let history = JSON.parse(localStorage.getItem('guitarLog') || '[]');
-    localStorage.setItem('guitarLog', JSON.stringify(history.concat(currentSession)));
+    history.push(rowData);
+    localStorage.setItem('guitarLog', JSON.stringify(history));
 
+    // 2. Send to Google Sheets
     try {
         await fetch(GOOGLE_SCRIPT_URL, {
             method: 'POST',
             mode: 'no-cors',
-            body: JSON.stringify(currentSession)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(rowData)
         });
-        alert('Routine Complete! Data synced.');
+        alert('Practice session recorded!');
         window.location.href = 'history.html';
-    } catch (e) {
-        alert('Saved locally. Network error for Sheets.');
+    } catch (error) {
+        console.error('Error!', error);
+        alert('Saved locally, but sync failed.');
     }
 });
