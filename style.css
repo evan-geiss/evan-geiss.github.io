@@ -142,3 +142,33 @@ tr:hover {
     color: #666;
     margin-top: 10px;
 }
+
+.tech-desc {
+    font-size: 0.9rem;
+    color: #b0b0b0; /* Light gray text */
+    font-style: italic;
+    line-height: 1.4;
+    margin: 5px 0 15px 0;
+    padding-left: 10px;
+    border-left: 2px solid var(--accent-color);
+}
+
+.card-header h3 {
+    margin: 0;
+    color: var(--text-color);
+}
+
+.selection-area {
+    margin-bottom: 20px;
+    background: #252525;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+#routine-select {
+    background: #333;
+    color: white;
+    padding: 5px;
+    border: 1px solid var(--accent-color);
+    border-radius: 4px;
+}
