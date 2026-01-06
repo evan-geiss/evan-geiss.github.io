@@ -32,21 +32,16 @@
 
         log.slice().reverse().forEach(entry => {
             const row = tbody.insertRow();
-            row.innerHTML = `<td>${entry.date}</td><td>${entry.technique}</td><td>${entry.count}</td>`;
+            // Adjust these keys to match the IDs in your routines.json
+            row.innerHTML = `
+                <td>${entry.date}</td>
+                <td>${entry.d_chord || 0}</td>
+                <td>${entry.a_chord || 0}</td>
+                <td>${entry.anchor || 0}</td>
+                <td>${entry.a_to_d || 0}</td>
+                <td>${entry.d_to_a || 0}</td>
+            `;
         });
-
-        function downloadCSV() {
-            let csvContent = "data:text/csv;charset=utf-8,Date,Technique,Count\n";
-            log.forEach(e => {
-                csvContent += `${e.date},"${e.technique}",${e.count}\n`;
-            });
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "guitar_practice_log.csv");
-            document.body.appendChild(link);
-            link.click();
-        }
     </script>
 </body>
 </html>
