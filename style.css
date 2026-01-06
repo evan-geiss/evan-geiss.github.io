@@ -84,6 +84,20 @@ button {
     animation: flash-bg 0.5s infinite alternate;
 }
 
+.metronome-tool {
+    background: #2a2a2a;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.metronome-tool input {
+    width: 60px;
+}
+
 @keyframes flash-bg {
     from { background-color: var(--card-bg); }
     to { background-color: #443300; }
